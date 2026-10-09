@@ -1,0 +1,109 @@
+# Requisições de exemplo (extensão "REST Client" do VS Code: clique em "Send Request").
+# Ajuste @base se a porta for outra. Para testar pelo celular, troque localhost pelo IP do computador.
+
+@base = http://localhost:3000/api
+@adminKey = COLE_AQUI_O_ADMIN_KEY_DO_SEU_ENV
+
+### Saúde
+GET {{base}}/saude
+
+### Cadastro
+POST {{base}}/auth/cadastro
+Content-Type: application/json
+
+{
+  "nomeCompleto": "Maria Silva",
+  "email": "maria@email.com",
+  "cpf": "111.444.777-35",
+  "senha": "minhasenha"
+}
+
+### Login (usuário do seed; guarda o token na variável do arquivo)
+# @name login
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "login": "ana.souza@petmais.com", "senha": "123456" }
+
+###
+@token = {{login.response.body.$.token}}
+
+### Meus dados
+GET {{base}}/auth/me
+Authorization: Bearer {{token}}
+
+### Catálogo
+GET {{base}}/produtos
+
+### Busca sem acento, só promoções
+GET {{base}}/produtos?busca=racao&promocao=true
+
+### Detalhe (troque pelo id de um produto da listagem)
+# @name produtos
+GET {{base}}/produtos?limite=3
+
+###
+@produtoId = {{produtos.response.body.$.dados[0].id}}
+@produtoId2 = {{produtos.response.body.$.dados[1].id}}
+
+GET {{base}}/produtos/{{produtoId}}
+
+### Finalizar pedido (o preço NUNCA é enviado)
+# @name pedido
+POST {{base}}/pedidos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "itens": [ { "produtoId": "{{produtoId}}" }, { "produtoId": "{{produtoId2}}" }, { "produtoId": "{{produtoId}}" } ] }
+
+### Meus pedidos
+GET {{base}}/pedidos
+Authorization: Bearer {{token}}
+
+### Histórico de compras
+GET {{base}}/compras
+Authorization: Bearer {{token}}
+
+### Assistente (IA com fallback para regras)
+POST {{base}}/assistente/mensagens
+Content-Type: application/json
+
+{
+  "mensagem": "Qual ração é indicada para filhotes?",
+  "historico": [ { "papel": "usuario", "texto": "Oi" }, { "papel": "assistente", "texto": "Olá! Como posso ajudar?" } ]
+}
+
+### Status da IA
+GET {{base}}/assistente/status
+
+### Gerente: cadastrar produto
+# @name novoProduto
+POST {{base}}/admin/produtos
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{
+  "nome": "Petisco Novo 100g",
+  "tipo": "Petisco",
+  "precoAtual": 19.9,
+  "precoPromocional": 15.9,
+  "descricao": "Petisco crocante",
+  "dataValidade": "2027-06-30"
+}
+
+###
+@novoId = {{novoProduto.response.body.$.produto.id}}
+
+### Gerente: encerrar a promoção
+PATCH {{base}}/admin/produtos/{{novoId}}
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "precoPromocional": null }
+
+### Gerente: retirar do catálogo (sem apagar)
+PATCH {{base}}/admin/produtos/{{novoId}}
+X-Admin-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "ativo": false }

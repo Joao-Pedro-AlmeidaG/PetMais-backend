@@ -1,0 +1,43 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: petmais-mongo
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017" # só acessível da própria máquina (o banco local não tem senha)
+    volumes:
+      - petmais-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    profiles: ["app"]
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MONGO_URL: mongodb://mongo:27017/petmais
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET (32+ caracteres) no arquivo .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      ADMIN_KEY: ${ADMIN_KEY:-}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      # Dentro do container, "127.0.0.1" é o próprio container, e o Ollama roda no seu computador.
+      # Por isso o padrão aqui é "regras". Para usar a IA com a API em Docker, o Ollama precisa escutar
+      # fora do loopback (OLLAMA_HOST=0.0.0.0, com firewall) e OLLAMA_URL=http://host.docker.internal:11434.
+      # O jeito mais simples e seguro: rode a API com "npm run dev" (fora do Docker) e deixe só o Mongo aqui.
+      ASSISTANT_PROVIDER: ${ASSISTANT_PROVIDER:-regras}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-petmais-assistente}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  petmais-mongo-data:
